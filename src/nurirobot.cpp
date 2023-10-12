@@ -3,7 +3,7 @@
 Nurirobot::Nurirobot()
     : Node("nurirobot_driver_node")
 {
-    if ((port_fd = open(PORT, O_RDWR | O_NOCTTY)) < 0)
+    if ((port_fd = open(PORT, O_RDWR | O_NDELAY)) < 0)
     {
         RCLCPP_ERROR(this->get_logger(), "Cannot open serial port to Nurirobot");
         exit(-1); // TODO : put this again
@@ -47,6 +47,10 @@ Nurirobot::Nurirobot()
     RCLCPP_INFO(this->get_logger(), "Opened serial port to Nurirobot");
     pos_pub_ = this->create_publisher<nurirobot_msgs::msg::NurirobotPos>("nurirobot_driver_node/pos", 10);
     speed_pub_ = this->create_publisher<nurirobot_msgs::msg::NurirobotSpeed>("nurirobot_driver_node/speed", 10);
+    hc_speed_pub_ = this->create_publisher<nurirobot_msgs::msg::NurirobotSpeed>("hc/speed", 10);
+
+    hc_ctrl_pub_ = this->create_publisher<nurirobot_msgs::msg::HCControl>("hc/control", 10);
+
     remote_sub_ = this->create_subscription<std_msgs::msg::Bool>("nurirobot_remote",
                                                                  10, std::bind(&Nurirobot::setRemote_callback, this, std::placeholders::_1));
     subscriber_cmdTwist_ = this->create_subscription<geometry_msgs::msg::Twist>(
@@ -89,7 +93,7 @@ void Nurirobot::cbFeedback()
     feedbackCall(0);
     usleep(1500);
     feedbackCall(1);
-    usleep(2000);
+    usleep(1500);
     feedbackHCCall();
     // RCLCPP_INFO(this->get_logger(), "remote : Start");
 }
@@ -233,14 +237,27 @@ void Nurirobot::protocol_recv(uint8_t byte)
             checksum = ~checksum;
 
             // 체크섬 확인
+            // RCLCPP_INFO(this->get_logger(), "recv : %s",  toHexString(&msg, msg_len).c_str());
             if (checksum == p[4])
             {
-                // RCLCPP_INFO(this->get_logger(), "recv : %s",  toHexString(&msg, msg_len).c_str());
                 switch (msg.mode)
                 {
                 case 0x03:
                 {
                     // 속도 제어 명령 수신
+                    uint8_t *src = (uint8_t *)&msg;
+                    SpeedCommand tmp;
+                    uint8_t *dest = (uint8_t *)&tmp;
+                    std::memcpy(dest, src, msg_len);
+
+                    float speed = tmp.getValueSpeed() * 0.1f * (tmp.direction == 0 ? (tmp.id == 0 ? 1 : -1) : (tmp.id == 0 ? -1 : 1));
+                    // RCLCPP_INFO(this->get_logger(), "id: %d, speed: %f",tmp.id, speed);
+
+                    auto msgspeed = std::make_unique<nurirobot_msgs::msg::NurirobotSpeed>();
+                    msgspeed->id = tmp.id;
+                    msgspeed->speed = speed;
+                    hc_speed_pub_->publish(*msgspeed);                 
+
                     // 제어 상태에 따라서 모드 변경이 필요
                     if (remote) {
                         commandRemoteStart();
@@ -255,7 +272,14 @@ void Nurirobot::protocol_recv(uint8_t byte)
                     uint8_t *dest = (uint8_t *)&tmp;
                     std::memcpy(dest, src, msg_len);
 
-                    RCLCPP_INFO(this->get_logger(), "y : %d, x:%d, adc: %d, btn: %d", tmp.y, tmp.x, tmp.volt, tmp.btn );
+                    auto msg = std::make_unique<nurirobot_msgs::msg::HCControl>();
+                    msg->xaxis = tmp.x;
+                    msg->yaxis = tmp.y;
+                    msg->adc = tmp.volt;
+                    msg->clickbutton = tmp.btn == 4 ? false : true;
+                    hc_ctrl_pub_->publish(*msg);                       
+
+                    // RCLCPP_INFO(this->get_logger(), "y : %d, x:%d, adc: %d, btn: %d", tmp.y, tmp.x, tmp.volt, tmp.btn );
                     break;
                 }
                 case 0xd2:
@@ -268,16 +292,17 @@ void Nurirobot::protocol_recv(uint8_t byte)
                     std::memcpy(dest1, src1, msg_len);
 
                     auto msgpos = std::make_unique<nurirobot_msgs::msg::NurirobotPos>();
-                    msgpos->id = tmp1.id;                    
+                    msgpos->id = tmp1.id;
                     msgpos->pos = tmp1.getValuePos() * 0.1f; 
                     pos_pub_->publish(*msgpos);
 
                     auto msgspeed = std::make_unique<nurirobot_msgs::msg::NurirobotSpeed>();
-                    msgspeed->id = tmp1.id;                    
-                    msgspeed->speed = tmp1.getValueSpeed() * 0.1f;
+                    msgspeed->id = tmp1.id;
+                    msgspeed->speed = tmp1.getValueSpeed() * 0.1f * (tmp1.direction == 0 ? (tmp1.id == 0 ? 1 : -1) : (tmp1.id == 0 ? -1 : 1));
                     speed_pub_->publish(*msgspeed);
 
-                    // if (tmp1.id == 0) {
+                    // if (tmp1.id == 1) {
+                    //     // RCLCPP_INFO(this->get_logger(), "recv : %s",  toHexString(&msg, msg_len).c_str());
                     //     RCLCPP_INFO(this->get_logger(), "id: %d, dir: %d, pos : %d, speed:%d",tmp1.id, tmp1.direction, tmp1.getValuePos(), tmp1.getValueSpeed() );
                     //     // RCLCPP_INFO(this->get_logger(), "recv : %s",  toHexString(&tmp1, msg_len).c_str());
                     // }
@@ -332,9 +357,9 @@ void Nurirobot::twistCallback(const geometry_msgs::msg::Twist::SharedPtr msg)
     float lin_vel_x = msg->linear.x;
     float ang_vel_z = msg->angular.z;
 
-    RCLCPP_INFO(this->get_logger(),
-                "Received Twist: linear.x: '%f', angular.z: '%f'",
-                lin_vel_x, ang_vel_z);
+    // RCLCPP_INFO(this->get_logger(),
+    //             "Received Twist: linear.x: '%f', angular.z: '%f'",
+    //             lin_vel_x, ang_vel_z);
 
     lin_vel_x = std::max(-max_lin_vel_x, std::min(max_lin_vel_x, lin_vel_x));
     ang_vel_z = std::max(-max_ang_vel_z, std::min(max_ang_vel_z, ang_vel_z));

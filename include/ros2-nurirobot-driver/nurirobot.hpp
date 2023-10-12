@@ -3,13 +3,12 @@
 #include "std_msgs/msg/string.hpp"
 #include "nurirobot_msgs/msg/nurirobot_pos.hpp"
 #include "nurirobot_msgs/msg/nurirobot_speed.hpp"
+#include "nurirobot_msgs/msg/hc_control.hpp"
 #include "std_msgs/msg/bool.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 
 #include "config.hpp"
 #include "protocol.hpp"
-
-// #include <termios.h>
 
 #include <functional>
 #include <memory>
@@ -17,12 +16,6 @@
 #include <iostream>
 #include <fcntl.h>
 #include <unistd.h>
-// #include <asm/termios.h>
-// #include <sys/ioctl.h>
-// #include <linux/serial.h>
-
-// #include <asm/ioctls.h>
-// #include <asm/termbits.h>
 #include <sys/ioctl.h> // Used for TCGETS2, which is required for custom baud rates
 #include <cassert>
 #include <asm/ioctls.h>
@@ -61,6 +54,10 @@ public:
     rclcpp::Publisher<nurirobot_msgs::msg::NurirobotPos>::SharedPtr pos_pub_;
     /// @brief 속도 Publish 포인트
     rclcpp::Publisher<nurirobot_msgs::msg::NurirobotSpeed>::SharedPtr speed_pub_;
+
+    rclcpp::Publisher<nurirobot_msgs::msg::NurirobotSpeed>::SharedPtr hc_speed_pub_;
+
+    rclcpp::Publisher<nurirobot_msgs::msg::HCControl>::SharedPtr hc_ctrl_pub_;
 
     /// @brief 제어 신호 구독 
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr remote_sub_;
