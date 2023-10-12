@@ -293,7 +293,7 @@ void Nurirobot::protocol_recv(uint8_t byte)
 
                     auto msgpos = std::make_unique<nurirobot_msgs::msg::NurirobotPos>();
                     msgpos->id = tmp1.id;
-                    msgpos->pos = tmp1.getValuePos() * 0.1f; 
+                    msgpos->pos = tmp1.getValuePos(); 
                     pos_pub_->publish(*msgpos);
 
                     auto msgspeed = std::make_unique<nurirobot_msgs::msg::NurirobotSpeed>();
