@@ -98,6 +98,18 @@ void Nurirobot::cbFeedback()
     // RCLCPP_INFO(this->get_logger(), "remote : Start");
 }
 
+std::string toHexString(const void *data, size_t size)
+{
+    const uint8_t *byteData = static_cast<const uint8_t *>(data);
+    std::stringstream ss;
+    ss << std::hex << std::setfill('0');
+    for (size_t i = 0; i < size; ++i)
+    {
+        ss << std::setw(2) << static_cast<int>(byteData[i]) << " ";
+    }
+    return ss.str();
+}
+
 void Nurirobot::feedbackCall(uint8_t id)
 {
     if (port_fd == -1)
@@ -190,18 +202,6 @@ void Nurirobot::commandRemoteStop()
     RCLCPP_INFO(this->get_logger(), "remote : Stop");
 }
 
-std::string toHexString(const void *data, size_t size)
-{
-    const uint8_t *byteData = static_cast<const uint8_t *>(data);
-    std::stringstream ss;
-    ss << std::hex << std::setfill('0');
-    for (size_t i = 0; i < size; ++i)
-    {
-        ss << std::setw(2) << static_cast<int>(byteData[i]) << " ";
-    }
-    return ss.str();
-}
-
 void Nurirobot::protocol_recv(uint8_t byte)
 {
     start_frame = ((uint16_t)(byte) << 8) | prev_byte;
@@ -244,6 +244,8 @@ void Nurirobot::protocol_recv(uint8_t byte)
                 {
                 case 0x03:
                 {
+                    // 속도 제어 신호로 처리하면 피드백 성능이 떨어짐
+                    /*
                     // 속도 제어 명령 수신
                     uint8_t *src = (uint8_t *)&msg;
                     SpeedCommand tmp;
@@ -256,7 +258,8 @@ void Nurirobot::protocol_recv(uint8_t byte)
                     auto msgspeed = std::make_unique<nurirobot_msgs::msg::NurirobotSpeed>();
                     msgspeed->id = tmp.id;
                     msgspeed->speed = speed;
-                    hc_speed_pub_->publish(*msgspeed);                 
+                    hc_speed_pub_->publish(*msgspeed);
+                    */
 
                     // 제어 상태에 따라서 모드 변경이 필요
                     if (remote) {
