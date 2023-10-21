@@ -5,7 +5,9 @@
 #include "nurirobot_msgs/msg/nurirobot_speed.hpp"
 #include "nurirobot_msgs/msg/hc_control.hpp"
 #include "std_msgs/msg/bool.hpp"
+#include "sensor_msgs/msg/joy.hpp"
 #include "geometry_msgs/msg/twist.hpp"
+#include "std_msgs/msg/byte_multi_array.hpp"
 
 #include "config.hpp"
 #include "protocol.hpp"
@@ -39,7 +41,7 @@ public:
     // void write(); // 컨트롤러로 데이터 전송
 
     // void feedbackCall(); // 피드백
- 
+    
  private:
     void protocol_recv (uint8_t c); // Function to recontruct serial packets coming from BLDC controller
     void feedbackCall(uint8_t id);
@@ -59,10 +61,13 @@ public:
 
     rclcpp::Publisher<nurirobot_msgs::msg::HCControl>::SharedPtr hc_ctrl_pub_;
 
+    rclcpp::Publisher<sensor_msgs::msg::Joy>::SharedPtr hc_joy_pub_;
+
     /// @brief 제어 신호 구독 
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr remote_sub_;
     /// @brief 속도 제어 구독
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr subscriber_cmdTwist_;
+    rclcpp::Subscription<std_msgs::msg::ByteMultiArray>::SharedPtr rawdata_sub_;
 
     /// @brief 원격제어 여부
     /// @param msg 
@@ -87,7 +92,7 @@ public:
     FeedbackResponse msg;
 
     // 최초 외부 명령 모드 아님
-    bool remote = false;
+    bool remote = true;
 
     // 최대 속도
     float max_lin_vel_x = MAX_LIN_VEL_X;
@@ -99,4 +104,7 @@ public:
     float wheel_radius = WHEEL_RADIUS;
 
     void write_base_velocity(float x, float z);
+    float convertRange(float input);
+    const float DEADZONE = 50.0f;
+    void byteMultiArrayCallback(const std_msgs::msg::ByteMultiArray::SharedPtr msg);
 };

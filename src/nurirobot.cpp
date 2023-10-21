@@ -50,11 +50,15 @@ Nurirobot::Nurirobot()
     hc_speed_pub_ = this->create_publisher<nurirobot_msgs::msg::NurirobotSpeed>("hc/speed", 10);
 
     hc_ctrl_pub_ = this->create_publisher<nurirobot_msgs::msg::HCControl>("hc/control", 10);
+    hc_joy_pub_ = this->create_publisher<sensor_msgs::msg::Joy>("hc/joy", 10);
 
     remote_sub_ = this->create_subscription<std_msgs::msg::Bool>("nurirobot_remote",
                                                                  10, std::bind(&Nurirobot::setRemote_callback, this, std::placeholders::_1));
     subscriber_cmdTwist_ = this->create_subscription<geometry_msgs::msg::Twist>(
         "cmd_vel", 10, std::bind(&Nurirobot::twistCallback, this, std::placeholders::_1));
+    rawdata_sub_ = this->create_subscription<std_msgs::msg::ByteMultiArray>(
+            "mc_rawdata", 10,
+            std::bind(&Nurirobot::byteMultiArrayCallback, this, std::placeholders::_1));        
 
     RCLCPP_INFO(this->get_logger(), "max_lin_vel_x: %f", max_lin_vel_x);
     RCLCPP_INFO(this->get_logger(), "max_ang_vel_z: %f", max_ang_vel_z);
@@ -130,6 +134,11 @@ void Nurirobot::feedbackCall(uint8_t id)
     {
         RCLCPP_ERROR(this->get_logger(), "Error writing to Nurirobot serial port");
     }
+}
+
+float Nurirobot::convertRange(float input)
+{
+    return 2.0 * (input - 512.0) / 1023.0;
 }
 
 void Nurirobot::commandRemoteStart()
@@ -280,7 +289,27 @@ void Nurirobot::protocol_recv(uint8_t byte)
                     msg->yaxis = tmp.y;
                     msg->adc = tmp.volt;
                     msg->clickbutton = tmp.btn == 4 ? false : true;
-                    hc_ctrl_pub_->publish(*msg);                       
+                    hc_ctrl_pub_->publish(*msg);              
+
+                    auto joy_msg = std::make_unique<sensor_msgs::msg::Joy>();
+                    float x = convertRange(tmp.x);
+                    float y = convertRange(tmp.y);
+
+                    if (abs(x) < (DEADZONE / 1023.0)) {
+                        x = 0;
+                    }
+
+                    if (abs(y) < (DEADZONE / 1023.0)) {
+                        y = 0;
+                    }                    
+
+                    joy_msg->axes.push_back(x);
+                    joy_msg->axes.push_back(y);
+                    joy_msg->buttons.push_back(tmp.btn == 4 ? false : true);
+
+                    joy_msg->header.stamp = this->now();
+
+                    hc_joy_pub_->publish(*joy_msg);
 
                     // RCLCPP_INFO(this->get_logger(), "y : %d, x:%d, adc: %d, btn: %d", tmp.y, tmp.x, tmp.volt, tmp.btn );
                     break;
@@ -431,4 +460,19 @@ void Nurirobot::write_base_velocity(float x, float z)
         RCLCPP_ERROR(this->get_logger(), "Error writing to Nurirobot serial port");
         return;
     }
+}
+
+void Nurirobot::byteMultiArrayCallback(const std_msgs::msg::ByteMultiArray::SharedPtr msg) {
+    if (port_fd == -1)
+    {
+        RCLCPP_ERROR(this->get_logger(), "Attempt to write on closed serial");
+        return;
+    }
+
+    int rc = ::write(port_fd, msg->data.data(), msg->data.size());
+    if (rc < 0)
+    {
+        RCLCPP_ERROR(this->get_logger(), "Error writing to Nurirobot serial port");
+        return;
+    }    
 }

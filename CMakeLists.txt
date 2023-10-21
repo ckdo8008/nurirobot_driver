@@ -23,6 +23,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs  REQUIRED)
+find_package(sensor_msgs  REQUIRED)
 # Add custom msgs
 find_package(nurirobot_msgs REQUIRED)
 # find_package(wheel_msgs REQUIRED)
@@ -35,7 +36,7 @@ add_library(nurirobot SHARED
             src/nurirobot.cpp)
 # Add other dependencies needed by the source code declared above
 # ament_target_dependencies(nurirobot rclcpp std_msgs wheel_msgs)
-ament_target_dependencies(nurirobot rclcpp std_msgs geometry_msgs nurirobot_msgs)
+ament_target_dependencies(nurirobot rclcpp std_msgs geometry_msgs nurirobot_msgs sensor_msgs)
 
 # Add the code we want to compile to have an executable (so ros2 run can execute it)
 add_executable(main src/main.cpp)
@@ -43,7 +44,7 @@ add_executable(main src/main.cpp)
 target_link_libraries(main nurirobot)
 # Other dependencies (outsource)
 # ament_target_dependencies(main rclcpp std_msgs wheel_msgs)
-ament_target_dependencies(main rclcpp std_msgs geometry_msgs nurirobot_msgs)
+ament_target_dependencies(main rclcpp std_msgs geometry_msgs nurirobot_msgs sensor_msgs)
 
 
 # Install C files for ros2 run.
