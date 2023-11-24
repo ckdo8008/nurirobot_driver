@@ -1,6 +1,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/float64.hpp"
 #include "std_msgs/msg/string.hpp"
+#include "std_msgs/msg/u_int16.hpp"
 #include "nurirobot_msgs/msg/nurirobot_pos.hpp"
 #include "nurirobot_msgs/msg/nurirobot_speed.hpp"
 #include "nurirobot_msgs/msg/hc_control.hpp"
@@ -63,6 +64,9 @@ public:
 
     rclcpp::Publisher<sensor_msgs::msg::Joy>::SharedPtr hc_joy_pub_;
 
+    rclcpp::Publisher<nurirobot_msgs::msg::NurirobotPos>::SharedPtr left_pos_pub_;
+    rclcpp::Publisher<nurirobot_msgs::msg::NurirobotPos>::SharedPtr right_pos_pub_;
+
     /// @brief 제어 신호 구독 
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr remote_sub_;
     /// @brief 속도 제어 구독
@@ -107,4 +111,6 @@ public:
     float convertRange(float input);
     const float DEADZONE = 50.0f;
     void byteMultiArrayCallback(const std_msgs::msg::ByteMultiArray::SharedPtr msg);
+
+    void timeCallback();
 };

@@ -52,6 +52,9 @@ Nurirobot::Nurirobot()
     hc_ctrl_pub_ = this->create_publisher<nurirobot_msgs::msg::HCControl>("hc/control", 10);
     hc_joy_pub_ = this->create_publisher<sensor_msgs::msg::Joy>("hc/joy", 10);
 
+    left_pos_pub_ = this->create_publisher<nurirobot_msgs::msg::NurirobotPos>("left_wheel_pos", 10);
+    right_pos_pub_ = this->create_publisher<nurirobot_msgs::msg::NurirobotPos>("right_wheel_pos", 10);
+
     remote_sub_ = this->create_subscription<std_msgs::msg::Bool>("nurirobot_remote",
                                                                  10, std::bind(&Nurirobot::setRemote_callback, this, std::placeholders::_1));
     subscriber_cmdTwist_ = this->create_subscription<geometry_msgs::msg::Twist>(
@@ -64,6 +67,8 @@ Nurirobot::Nurirobot()
     RCLCPP_INFO(this->get_logger(), "max_ang_vel_z: %f", max_ang_vel_z);
     RCLCPP_INFO(this->get_logger(), "wheel_separation: %f", wheel_separation);
     RCLCPP_INFO(this->get_logger(), "wheel_radius: %f", wheel_radius);
+
+    this->create_wall_timer(std::chrono::milliseconds(200), std::bind(&Nurirobot::timeCallback, this));
 }
 
 Nurirobot::~Nurirobot()
@@ -87,6 +92,7 @@ void Nurirobot::read()
         if (r < 0 && errno != EAGAIN)
             RCLCPP_ERROR(this->get_logger(), "Reading from serial %s failed: %d", PORT, r);
     }
+    RCLCPP_INFO(this->get_logger(), "read");
 }
 
 void Nurirobot::cbFeedback()
@@ -95,11 +101,13 @@ void Nurirobot::cbFeedback()
         return;
 
     feedbackCall(0);
-    usleep(1500);
+    // usleep(1500);
+    std::this_thread::sleep_for(std::chrono::microseconds(1500));
     feedbackCall(1);
-    usleep(1500);
+    // usleep(1500);
+    std::this_thread::sleep_for(std::chrono::microseconds(1500));
     feedbackHCCall();
-    // RCLCPP_INFO(this->get_logger(), "remote : Start");
+    RCLCPP_INFO(this->get_logger(), "cbFeedback");
 }
 
 std::string toHexString(const void *data, size_t size)
@@ -328,10 +336,23 @@ void Nurirobot::protocol_recv(uint8_t byte)
                     msgpos->pos = tmp1.getValuePos(); 
                     pos_pub_->publish(*msgpos);
 
+                    auto msglrpos = std::make_unique<nurirobot_msgs::msg::NurirobotPos>();
+                    msglrpos->header.stamp = this->get_clock()->now();
+                    msglrpos->header.frame_id = "pos";
+                    msglrpos->id = tmp1.id;
+                    msglrpos->pos = tmp1.getValuePos(); 
+
+                    if (tmp1.id == 0)
+                        left_pos_pub_->publish(*msglrpos);
+                    else 
+                        right_pos_pub_->publish(*msglrpos);
+
                     auto msgspeed = std::make_unique<nurirobot_msgs::msg::NurirobotSpeed>();
                     msgspeed->id = tmp1.id;
                     msgspeed->speed = tmp1.getValueSpeed() * 0.1f * (tmp1.direction == 0 ? (tmp1.id == 0 ? 1 : -1) : (tmp1.id == 0 ? -1 : 1));
                     speed_pub_->publish(*msgspeed);
+
+
 
                     // if (tmp1.id == 1) {
                     //     // RCLCPP_INFO(this->get_logger(), "recv : %s",  toHexString(&msg, msg_len).c_str());
@@ -397,6 +418,8 @@ void Nurirobot::twistCallback(const geometry_msgs::msg::Twist::SharedPtr msg)
     ang_vel_z = std::max(-max_ang_vel_z, std::min(max_ang_vel_z, ang_vel_z));
 
     write_base_velocity(lin_vel_x, ang_vel_z);
+
+    RCLCPP_INFO(this->get_logger(), "twistCallback");
 }
 
 void Nurirobot::write_base_velocity(float x, float z)
@@ -453,13 +476,16 @@ void Nurirobot::write_base_velocity(float x, float z)
     }
 
     // std::this_thread::sleep_for(std::chrono::milliseconds(1));
-
+    // usleep(1500);
+    std::this_thread::sleep_for(std::chrono::microseconds(1500));
     rc = ::write(port_fd, mutable_bytearray_right.data(), mutable_bytearray_right.size());
     if (rc < 0)
     {
         RCLCPP_ERROR(this->get_logger(), "Error writing to Nurirobot serial port");
         return;
     }
+    // usleep(1500);
+    std::this_thread::sleep_for(std::chrono::microseconds(1500));
 }
 
 void Nurirobot::byteMultiArrayCallback(const std_msgs::msg::ByteMultiArray::SharedPtr msg) {
@@ -475,4 +501,12 @@ void Nurirobot::byteMultiArrayCallback(const std_msgs::msg::ByteMultiArray::Shar
         RCLCPP_ERROR(this->get_logger(), "Error writing to Nurirobot serial port");
         return;
     }    
+}
+
+void Nurirobot::timeCallback()
+{
+    cbFeedback();
+    std::this_thread::sleep_for(std::chrono::microseconds(2000));
+    // usleep(2000);
+    read();
 }
