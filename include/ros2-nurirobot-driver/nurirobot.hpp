@@ -113,4 +113,5 @@ public:
     void byteMultiArrayCallback(const std_msgs::msg::ByteMultiArray::SharedPtr msg);
 
     void timeCallback();
+    rclcpp::TimerBase::SharedPtr callback_timer_;
 };

@@ -68,7 +68,7 @@ Nurirobot::Nurirobot()
     RCLCPP_INFO(this->get_logger(), "wheel_separation: %f", wheel_separation);
     RCLCPP_INFO(this->get_logger(), "wheel_radius: %f", wheel_radius);
 
-    this->create_wall_timer(std::chrono::milliseconds(200), std::bind(&Nurirobot::timeCallback, this));
+    callback_timer_ = this->create_wall_timer(std::chrono::milliseconds(100), std::bind(&Nurirobot::timeCallback, this));
 }
 
 Nurirobot::~Nurirobot()
@@ -101,12 +101,13 @@ void Nurirobot::cbFeedback()
         return;
 
     feedbackCall(0);
-    // usleep(1500);
-    std::this_thread::sleep_for(std::chrono::microseconds(1500));
+    usleep(1500);
+    // std::this_thread::sleep_for(std::chrono::microseconds(1500));
     feedbackCall(1);
-    // usleep(1500);
-    std::this_thread::sleep_for(std::chrono::microseconds(1500));
+    usleep(1500);
+    // std::this_thread::sleep_for(std::chrono::microseconds(1500));
     feedbackHCCall();
+    usleep(1500);
     RCLCPP_INFO(this->get_logger(), "cbFeedback");
 }
 
@@ -476,16 +477,16 @@ void Nurirobot::write_base_velocity(float x, float z)
     }
 
     // std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    // usleep(1500);
-    std::this_thread::sleep_for(std::chrono::microseconds(1500));
+    usleep(1500);
+    // std::this_thread::sleep_for(std::chrono::microseconds(1500));
     rc = ::write(port_fd, mutable_bytearray_right.data(), mutable_bytearray_right.size());
     if (rc < 0)
     {
         RCLCPP_ERROR(this->get_logger(), "Error writing to Nurirobot serial port");
         return;
     }
-    // usleep(1500);
-    std::this_thread::sleep_for(std::chrono::microseconds(1500));
+    usleep(1500);
+    // std::this_thread::sleep_for(std::chrono::microseconds(1500));
 }
 
 void Nurirobot::byteMultiArrayCallback(const std_msgs::msg::ByteMultiArray::SharedPtr msg) {
@@ -506,7 +507,7 @@ void Nurirobot::byteMultiArrayCallback(const std_msgs::msg::ByteMultiArray::Shar
 void Nurirobot::timeCallback()
 {
     cbFeedback();
-    std::this_thread::sleep_for(std::chrono::microseconds(2000));
+    // std::this_thread::sleep_for(std::chrono::microseconds(2000));
     // usleep(2000);
     read();
 }
