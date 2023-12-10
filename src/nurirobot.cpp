@@ -92,7 +92,7 @@ void Nurirobot::read()
         if (r < 0 && errno != EAGAIN)
             RCLCPP_ERROR(this->get_logger(), "Reading from serial %s failed: %d", PORT, r);
     }
-    RCLCPP_INFO(this->get_logger(), "read");
+    // RCLCPP_INFO(this->get_logger(), "read");
 }
 
 void Nurirobot::cbFeedback()
@@ -108,7 +108,7 @@ void Nurirobot::cbFeedback()
     // std::this_thread::sleep_for(std::chrono::microseconds(1500));
     feedbackHCCall();
     usleep(1500);
-    RCLCPP_INFO(this->get_logger(), "cbFeedback");
+    // RCLCPP_INFO(this->get_logger(), "cbFeedback");
 }
 
 std::string toHexString(const void *data, size_t size)
@@ -420,7 +420,7 @@ void Nurirobot::twistCallback(const geometry_msgs::msg::Twist::SharedPtr msg)
 
     write_base_velocity(lin_vel_x, ang_vel_z);
 
-    RCLCPP_INFO(this->get_logger(), "twistCallback");
+    // RCLCPP_INFO(this->get_logger(), "twistCallback");
 }
 
 void Nurirobot::write_base_velocity(float x, float z)
@@ -477,7 +477,7 @@ void Nurirobot::write_base_velocity(float x, float z)
     }
 
     // std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    usleep(1500);
+    // usleep(1500);
     // std::this_thread::sleep_for(std::chrono::microseconds(1500));
     rc = ::write(port_fd, mutable_bytearray_right.data(), mutable_bytearray_right.size());
     if (rc < 0)
@@ -485,7 +485,7 @@ void Nurirobot::write_base_velocity(float x, float z)
         RCLCPP_ERROR(this->get_logger(), "Error writing to Nurirobot serial port");
         return;
     }
-    usleep(1500);
+    // usleep(1500);
     // std::this_thread::sleep_for(std::chrono::microseconds(1500));
 }
 
@@ -501,7 +501,15 @@ void Nurirobot::byteMultiArrayCallback(const std_msgs::msg::ByteMultiArray::Shar
     {
         RCLCPP_ERROR(this->get_logger(), "Error writing to Nurirobot serial port");
         return;
-    }    
+    }
+    std::ostringstream hex_stream;
+
+    for (auto byte : msg->data) {
+        hex_stream << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(byte) << " ";
+    }
+
+    std::string hex_string = hex_stream.str();
+    // RCLCPP_INFO(this->get_logger(), "size: %d, mc_rawdata : %s", msg->data.size(), hex_string);
 }
 
 void Nurirobot::timeCallback()
