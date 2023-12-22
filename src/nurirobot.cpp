@@ -3,6 +3,7 @@
 Nurirobot::Nurirobot()
     : Node("nurirobot_driver_node")
 {
+
     if ((port_fd = open(PORT, O_RDWR | O_NDELAY)) < 0)
     {
         RCLCPP_ERROR(this->get_logger(), "Cannot open serial port to Nurirobot");
@@ -25,8 +26,8 @@ Nurirobot::Nurirobot()
 
     tty.c_cflag     &=  ~CBAUD;
     tty.c_cflag     |=  CBAUDEX;
-    tty.c_ispeed    =   250000;
-    tty.c_ospeed    =   250000;
+    tty.c_ispeed    =   38400;
+    tty.c_ospeed    =   38400;
     tty.c_oflag     =   0;
     tty.c_oflag     &=  ~OPOST;
     tty.c_cc[VTIME] = 0;
@@ -43,6 +44,43 @@ Nurirobot::Nurirobot()
         RCLCPP_ERROR(this->get_logger(), "Error from tcsetattr");
         exit(-1);
     }
+
+    // if ((port_fd = open(PORT, O_RDWR | O_NDELAY)) < 0)
+    // {
+    //     RCLCPP_ERROR(this->get_logger(), "Cannot open serial port to Nurirobot");
+    //     exit(-1); // TODO : put this again
+    // }
+
+    // // 포트 설정
+    // struct termios tty;
+    // if (tcgetattr(port_fd, &tty) != 0) {
+    //     // std::cerr << "Error from tcgetattr: " << strerror(errno) << std::endl;
+    //     RCLCPP_ERROR(this->get_logger(), "Error from tcgetattr");
+    //     exit(-1);
+    // }
+
+    // cfsetospeed(&tty, B57600);
+    // cfsetispeed(&tty, B57600);
+
+    // tty.c_cflag = (tty.c_cflag & ~CSIZE) | CS8; // 8비트 문자 크기
+    // tty.c_iflag &= ~IGNBRK; // 무시 브레이크 신호 무시
+    // tty.c_lflag = 0;
+    // tty.c_oflag = 0;
+
+    // tty.c_cc[VMIN]  = 0; // 최소 읽기 문자
+    // tty.c_cc[VTIME] = 5; // 0.5초 읽기 타임아웃  
+
+    // tty.c_iflag &= ~(IXON | IXOFF | IXANY); // XON/XOFF 플로우 컨트롤 끄기
+    // tty.c_cflag |= (CLOCAL | CREAD); // 수신기 활성화 및 로컬 모드 활성화
+    // tty.c_cflag &= ~(PARENB | PARODD); // 패리티 비트 없음
+    // tty.c_cflag &= ~CSTOPB;
+    // tty.c_cflag &= ~CRTSCTS;      
+
+    // if (tcsetattr(port_fd, TCSANOW, &tty) != 0) {
+    //     // std::cerr << "Error from tcsetattr: " << strerror(errno) << std::endl;
+    //     RCLCPP_ERROR(this->get_logger(), "Error from tcgetattr");
+    //     exit(-1);
+    // }
 
     RCLCPP_INFO(this->get_logger(), "Opened serial port to Nurirobot");
     pos_pub_ = this->create_publisher<nurirobot_msgs::msg::NurirobotPos>("nurirobot_driver_node/pos", 10);
@@ -171,7 +209,9 @@ void Nurirobot::commandRemoteStart()
         RCLCPP_ERROR(this->get_logger(), "Error writing to Nurirobot serial port");
     }
 
-    RCLCPP_INFO(this->get_logger(), "remote : Start");
+    // RCLCPP_INFO(this->get_logger(), "remote : Start");
+    RCLCPP_INFO(this->get_logger(), "remote : Start %s", toHexString((const void *)&command, sizeof(command)).c_str());
+
 }
 
 void Nurirobot::feedbackHCCall()
@@ -255,7 +295,6 @@ void Nurirobot::protocol_recv(uint8_t byte)
             checksum = ~checksum;
 
             // 체크섬 확인
-            // RCLCPP_INFO(this->get_logger(), "recv : %s",  toHexString(&msg, msg_len).c_str());
             if (checksum == p[4])
             {
                 switch (msg.mode)
@@ -298,6 +337,7 @@ void Nurirobot::protocol_recv(uint8_t byte)
                     msg->yaxis = tmp.y;
                     msg->adc = tmp.volt;
                     msg->clickbutton = tmp.btn == 4 ? false : true;
+                    msg->speed = tmp.speed;
                     hc_ctrl_pub_->publish(*msg);              
 
                     auto joy_msg = std::make_unique<sensor_msgs::msg::Joy>();
@@ -320,7 +360,7 @@ void Nurirobot::protocol_recv(uint8_t byte)
 
                     hc_joy_pub_->publish(*joy_msg);
 
-                    // RCLCPP_INFO(this->get_logger(), "y : %d, x:%d, adc: %d, btn: %d", tmp.y, tmp.x, tmp.volt, tmp.btn );
+                    RCLCPP_DEBUG(this->get_logger(), "y : %d, x:%d, adc: %d, btn: %d", tmp.y, tmp.x, tmp.volt, tmp.btn );
                     break;
                 }
                 case 0xd2:
@@ -368,14 +408,17 @@ void Nurirobot::protocol_recv(uint8_t byte)
 
                 // RCLCPP_INFO(this->get_logger(), "recv : %s",  toHexString(&msg, msg_len).c_str());
             }
-
+            else 
+            {
+                RCLCPP_INFO(this->get_logger(), "protocol_recv 1 : %s %d %d",  toHexString(&msg, msg_len).c_str(), checksum, p[4]);
+            }
             msg_len = 0;
         }
     }
 
     if (msg_len == sizeof(FeedbackResponse))
     {
-        RCLCPP_INFO(this->get_logger(), "recv : %s", toHexString(&msg, sizeof(msg)));
+        RCLCPP_INFO(this->get_logger(), "recv feed: %s", toHexString(&msg, sizeof(msg)).c_str());
         msg_len = 0;
     }
 

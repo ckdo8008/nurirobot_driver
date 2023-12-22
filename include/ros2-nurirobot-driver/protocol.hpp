@@ -88,6 +88,7 @@ typedef struct {
    uint16_t x;      // 리틀엔디안
    uint16_t volt;   // 리틀엔디안
    uint8_t  btn;
+   uint8_t speed;
 } WheelchairResponse;
 #pragma pack(pop)
 
