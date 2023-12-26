@@ -114,4 +114,5 @@ public:
 
     void timeCallback();
     rclcpp::TimerBase::SharedPtr callback_timer_;
+    uint8_t u8CallbackCount = 0;
 };

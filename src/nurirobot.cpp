@@ -106,7 +106,7 @@ Nurirobot::Nurirobot()
     RCLCPP_INFO(this->get_logger(), "wheel_separation: %f", wheel_separation);
     RCLCPP_INFO(this->get_logger(), "wheel_radius: %f", wheel_radius);
 
-    callback_timer_ = this->create_wall_timer(std::chrono::milliseconds(100), std::bind(&Nurirobot::timeCallback, this));
+    callback_timer_ = this->create_wall_timer(std::chrono::milliseconds(10), std::bind(&Nurirobot::timeCallback, this));
 }
 
 Nurirobot::~Nurirobot()
@@ -138,14 +138,27 @@ void Nurirobot::cbFeedback()
     if (!remote)
         return;
 
-    feedbackCall(0);
-    usleep(1500);
+    if (u8CallbackCount % 3 == 0) {
+        feedbackCall(0);
+        // std::this_thread::sleep_for(std::chrono::microseconds(45000));
+        // read();
+    }
+    
     // std::this_thread::sleep_for(std::chrono::microseconds(1500));
-    feedbackCall(1);
-    usleep(1500);
+    if (u8CallbackCount % 3 == 1) {
+        feedbackCall(1);
+        // std::this_thread::sleep_for(std::chrono::microseconds(45000));
+        // read();
+    }
+    // usleep(1500);
     // std::this_thread::sleep_for(std::chrono::microseconds(1500));
-    feedbackHCCall();
-    usleep(1500);
+    if (u8CallbackCount % 3 == 2) {
+        feedbackHCCall();
+        // std::this_thread::sleep_for(std::chrono::microseconds(100));
+        // read();
+    }
+
+    u8CallbackCount++;
     // RCLCPP_INFO(this->get_logger(), "cbFeedback");
 }
 
@@ -283,6 +296,7 @@ void Nurirobot::protocol_recv(uint8_t byte)
     {
         if ((unsigned int)(msg.datasize + 4) == msg_len)
         {
+            // RCLCPP_INFO(this->get_logger(), "recv : %s",  toHexString(&msg, msg_len).c_str());
             p = (uint8_t *)&msg;
             uint8_t checksum = 0;
             size_t msg_size = (size_t)msg_len;
