@@ -135,30 +135,52 @@ void Nurirobot::read()
 
 void Nurirobot::cbFeedback()
 {
+    static uint8_t u8cnt = 0;
     if (!remote)
         return;
 
-    if (u8CallbackCount % 3 == 0) {
-        feedbackCall(0);
-        // std::this_thread::sleep_for(std::chrono::microseconds(45000));
-        // read();
-    }
-    
-    // std::this_thread::sleep_for(std::chrono::microseconds(1500));
-    if (u8CallbackCount % 3 == 1) {
-        feedbackCall(1);
-        // std::this_thread::sleep_for(std::chrono::microseconds(45000));
-        // read();
-    }
-    // usleep(1500);
-    // std::this_thread::sleep_for(std::chrono::microseconds(1500));
-    if (u8CallbackCount % 3 == 2) {
-        feedbackHCCall();
-        // std::this_thread::sleep_for(std::chrono::microseconds(100));
-        // read();
-    }
+    if (u8CallbackCount == 0)
+    {
+        RCLCPP_INFO(this->get_logger(), "recv : %d %d %d",  u8RecvCount[0], u8RecvCount[1], u8RecvCount[2]);
+        u8RecvCount[0] = 0;
+        u8RecvCount[1] = 0;
+        u8RecvCount[2] = 0;
+    }        
 
+    // if (u8CallbackCount % 3 == 0) {
+    //     feedbackCall(0);
+    //     // std::this_thread::sleep_for(std::chrono::microseconds(45000));
+    //     // read();
+    // }
+    
+    // // std::this_thread::sleep_for(std::chrono::microseconds(1500));
+    // if (u8CallbackCount % 3 == 1) {
+    //     feedbackCall(1);
+    //     // std::this_thread::sleep_for(std::chrono::microseconds(45000));
+    //     // read();
+    // }
+    // // usleep(1500);
+    // // std::this_thread::sleep_for(std::chrono::microseconds(1500));
+    // if (u8CallbackCount % 3 == 2) {
+    //     feedbackHCCall();
+    //     // std::this_thread::sleep_for(std::chrono::microseconds(100));
+    //     // read();
+    // }
     u8CallbackCount++;
+    if (u8cnt == 0) {
+        feedbackCall(0);
+    }
+    else if (u8cnt == 5) {
+        feedbackCall(1);
+    }
+    else if (u8cnt == 10) {
+        feedbackHCCall();
+    }
+    else if (u8cnt >= 13) {
+        u8cnt = 0;
+        return;
+    }
+    u8cnt++;
     // RCLCPP_INFO(this->get_logger(), "cbFeedback");
 }
 
@@ -296,10 +318,13 @@ void Nurirobot::protocol_recv(uint8_t byte)
     {
         if ((unsigned int)(msg.datasize + 4) == msg_len)
         {
-            // RCLCPP_INFO(this->get_logger(), "recv : %s",  toHexString(&msg, msg_len).c_str());
             p = (uint8_t *)&msg;
             uint8_t checksum = 0;
             size_t msg_size = (size_t)msg_len;
+
+            u8RecvCount[0] = u8RecvCount[0] + (p[2] == 0 ? 1: 0);            
+            u8RecvCount[1] = u8RecvCount[1] + (p[2] == 1 ? 1: 0);
+            u8RecvCount[2] = u8RecvCount[2] + (p[2] == 192 ? 1: 0);
 
             for (size_t i = 2; i < msg_size; i++)
             {
@@ -352,6 +377,7 @@ void Nurirobot::protocol_recv(uint8_t byte)
                     msg->adc = tmp.volt;
                     msg->clickbutton = tmp.btn == 4 ? false : true;
                     msg->speed = tmp.speed;
+                    u8SpeedStep = tmp.speed;
                     hc_ctrl_pub_->publish(*msg);              
 
                     auto joy_msg = std::make_unique<sensor_msgs::msg::Joy>();
@@ -404,7 +430,8 @@ void Nurirobot::protocol_recv(uint8_t byte)
 
                     auto msgspeed = std::make_unique<nurirobot_msgs::msg::NurirobotSpeed>();
                     msgspeed->id = tmp1.id;
-                    msgspeed->speed = tmp1.getValueSpeed() * 0.1f * (tmp1.direction == 0 ? (tmp1.id == 0 ? 1 : -1) : (tmp1.id == 0 ? -1 : 1));
+                    // msgspeed->speed = tmp1.getValueSpeed() * 0.1f * (tmp1.direction == 0 ? (tmp1.id == 0 ? 1 : -1) : (tmp1.id == 0 ? -1 : 1));
+                    msgspeed->speed = tmp1.getValueSpeed() * 0.1f;
                     speed_pub_->publish(*msgspeed);
 
 
@@ -471,6 +498,38 @@ void Nurirobot::twistCallback(const geometry_msgs::msg::Twist::SharedPtr msg)
     // RCLCPP_INFO(this->get_logger(),
     //             "Received Twist: linear.x: '%f', angular.z: '%f'",
     //             lin_vel_x, ang_vel_z);
+    switch (u8SpeedStep)
+    {
+    case 1:
+        /* code */
+        max_lin_vel_x = 1.0f;
+        max_ang_vel_z = 1.5f;        
+        break;
+    case 2:
+        /* code */
+        max_lin_vel_x = 2.0f;
+        max_ang_vel_z = 2.5f;        
+        break;
+    case 3:
+        /* code */
+        max_lin_vel_x = 2.5f;
+        max_ang_vel_z = 3.0f;
+        break;
+    case 4:
+        /* code */
+        max_lin_vel_x = 3.0f;
+        max_ang_vel_z = 3.5f;        
+        break;
+    case 5:
+        /* code */
+        max_lin_vel_x = 3.5f;
+        max_ang_vel_z = 4.0f;        
+        break;
+    default:
+        max_lin_vel_x = 1.0f;
+        max_ang_vel_z = 1.5f;
+        break;
+    }
 
     lin_vel_x = std::max(-max_lin_vel_x, std::min(max_lin_vel_x, lin_vel_x));
     ang_vel_z = std::max(-max_ang_vel_z, std::min(max_ang_vel_z, ang_vel_z));
