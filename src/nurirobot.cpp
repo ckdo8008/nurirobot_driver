@@ -141,7 +141,7 @@ void Nurirobot::cbFeedback()
 
     if (u8CallbackCount == 0)
     {
-        RCLCPP_INFO(this->get_logger(), "recv : %d %d %d",  u8RecvCount[0], u8RecvCount[1], u8RecvCount[2]);
+        // RCLCPP_INFO(this->get_logger(), "recv : %d %d %d",  u8RecvCount[0], u8RecvCount[1], u8RecvCount[2]);
         u8RecvCount[0] = 0;
         u8RecvCount[1] = 0;
         u8RecvCount[2] = 0;
@@ -631,7 +631,7 @@ void Nurirobot::byteMultiArrayCallback(const std_msgs::msg::ByteMultiArray::Shar
 void Nurirobot::timeCallback()
 {
     cbFeedback();
-    // std::this_thread::sleep_for(std::chrono::microseconds(2000));
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
     // usleep(2000);
     read();
 }

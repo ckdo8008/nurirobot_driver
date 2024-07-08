@@ -1,6 +1,6 @@
 #pragma once
 
-#define PORT "/dev/ttyUSB1"
+#define PORT "/dev/ttyUSB0"
 #define DIRECTION_CORRECTION 1
 #define MAX_LIN_VEL_X 2.0f
 #define MAX_ANG_VEL_Z 2.5f
